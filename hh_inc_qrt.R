@@ -11,17 +11,20 @@ f.dir <- "C:/Users/Christy/Desktop/household_income"
 files <- list.files(f.dir, pattern = '.csv')
 
 income.table <- NULL
+income.summary <- NULL
 
 for (f in 1:length(files)){
   hh.file <- NULL
   year <- NULL
-  inc_summary <- NULL
+  inc.summary <- NULL
   hh.file <- read.table(file.path(f.dir, paste0(files[f])), header = TRUE, sep = ',')
   file.name <- unlist(strsplit(files[f], "[.]"))[[1]]
   
-  # print quartile summary
-  inc_summary <- summary(hh.file$income)
-  capture.output(inc_summary, file = file.path(f.dir, paste0(file.name, "_incsum.txt")))
+  # compile quartile summary
+  inc.summary <- summary(hh.file$income)
+  inc.summary <- data.frame(unclass(summary(hh.file$income)))
+  colnames(inc.summary) <- file.name
+  ifelse (is.null(income.summary), income.summary <- inc.summary, income.summary <- cbind(income.summary, inc.summary))
   
   # build income table
   year <- str_match(files[f], ".(\\d+).")[,2]
@@ -29,12 +32,16 @@ for (f in 1:length(files)){
   ifelse (is.null(income.table), income.table <- hh.file, income.table <- rbind(income.table, hh.file))
 }
 
-# plot
+# export quartile summary to csv
+write.table(income.summary, file.path(f.dir, "income.summary.csv"), col.names = NA, row.names = TRUE, sep = ",")
+
+# box plot
 p <- plot_ly(income.table, 
              y = ~income,
              color = ~year,
              type = "box") %>%
   layout(font = list(family="Segoe UI", size = 13.5))
 
+# export box plot to html
 html.file <- paste0("income_summary_boxplot.html")
 htmlwidgets::saveWidget(p, file.path(f.dir, html.file))
