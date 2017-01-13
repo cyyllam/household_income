@@ -1,6 +1,6 @@
 # This script reports household income statistics and income quartiles
 # requires 'income' column
-# user must set f.dir (where data resides)
+# user must set f.dir (where data resides) and option of creating plot
 
 library(stringr)
 library(plotly) # version 4.0 and up
@@ -12,6 +12,7 @@ files <- list.files(f.dir, pattern = '.csv')
 
 income.table <- NULL
 income.summary <- NULL
+plot <- 1 # 1 - yes, 0 - no
 
 for (f in 1:length(files)){
   hh.file <- NULL
@@ -33,15 +34,18 @@ for (f in 1:length(files)){
 }
 
 # export quartile summary to csv
-write.table(income.summary, file.path(f.dir, "income.summary.csv"), col.names = NA, row.names = TRUE, sep = ",")
+write.table(income.summary, file.path(f.dir, "income_summary.csv"), col.names = NA, row.names = TRUE, sep = ",")
 
 # box plot
-p <- plot_ly(income.table, 
-             y = ~income,
-             color = ~year,
-             type = "box") %>%
-  layout(font = list(family="Segoe UI", size = 13.5))
+if (plot == 1){
+  p <- plot_ly(income.table, 
+               y = ~income,
+               color = ~year,
+               type = "box") %>%
+    layout(font = list(family="Segoe UI", size = 13.5))
+  
+  # export box plot to html
+  html.file <- paste0("income_summary_boxplot.html")
+  htmlwidgets::saveWidget(p, file.path(f.dir, html.file))
+}
 
-# export box plot to html
-html.file <- paste0("income_summary_boxplot.html")
-htmlwidgets::saveWidget(p, file.path(f.dir, html.file))
