@@ -4,17 +4,22 @@
 
 library(stringr)
 library(plotly) # version 4.0 and up
+library(scales)
 options(pandoc.stack.size="2000m")
+
+# 1 - yes, 0 - no
+plot <- 0
+export.income.summary <- 0
+export.income.groups.table <- 1
 
 # read hh income file
 f.dir <- "C:/Users/Christy/Desktop/household_income"
 files <- list.files(f.dir, pattern = '.csv')
 
+# initialize tables
 income.table <- NULL
 income.summary <- NULL
 income.groups <- NULL
-
-plot <- 0 # 1 - yes, 0 - no
 
 for (f in 1:length(files)){
   hh.file <- NULL
@@ -26,48 +31,50 @@ for (f in 1:length(files)){
   hh.file <- within(hh.file, HINCP[HINCP < 0] <- 0)
   rm(hh.file2)
   
-  # compile frequency by income groups
-  breaks <- c(min(hh.file$HINCP), seq(10000, 50000, 5000), 60000, seq(75000, 150000, 25000), 200000, max(hh.file$HINCP)+1)
+  if (export.income.groups.table == 1){
+    # compile frequency by income groups
+    # breaks <- c(min(hh.file$HINCP), seq(10000, 50000, 5000), 60000, seq(75000, 150000, 25000), 200000, max(hh.file$HINCP)+1)
+    breaks <- c(min(hh.file$HINCP), 12297, 18444, 24593, 30741, 36890, 43038, 49187, 55335, 61484, 73781, 92226, 122969, 153711, 184454, 245939, max(hh.file$HINCP)+1)
+    hh.by.incgroups <- table(cut(hh.file$HINCP, breaks = breaks, right = FALSE)) %>% as.data.frame()
+    
+    start.lab <- paste('Less than', dollar(breaks[2]))
+    end.lab <- paste(dollar(breaks[length(breaks)-1]), 'or more')
+    from.lab <- sapply(breaks[2:(length(breaks)-2)], function(x) dollar(x))
+    to.lab <- sapply(breaks[3:(length(breaks)-1)]-1, function(x) dollar(x))
+    cat.lab <- function(x, y) paste(x, "to", y)
+    inbtwn.labs <- mapply(cat.lab, from.lab, to.lab, USE.NAMES = FALSE, SIMPLIFY = TRUE)
+    hh.by.incgroups[, 1] <- c(start.lab, inbtwn.labs, end.lab)
+    
+    colnames(hh.by.incgroups)[1] <- "incgroup"
+    colnames(hh.by.incgroups)[2] <- file.name
+    ifelse (is.null(income.groups), income.groups <- hh.by.incgroups, income.groups <- cbind(income.groups, hh.by.incgroups[,2]))
+  }
   
-  hh.by.incgroups <- table(cut(hh.file$HINCP, breaks = breaks, right = FALSE)) %>% as.data.frame()
-  hh.by.incgroups[, 1] <- c('Less than $10,000',
-                            '$10,000 to $14,999',
-                            '$15,000 to $19,999',
-                            '$20,000 to $24,999',
-                            '$25,000 to $29,999',
-                            '$30,000 to $34,999',
-                            '$35,000 to $39,999',
-                            '$40,000 to $44,999',
-                            '$45,000 to $49,999',
-                            '$50,000 to $59,999',
-                            '$60,000 to $74,999',
-                            '$75,000 to $99,999',
-                            '$100,000 to $124,999',
-                            '$125,000 to $149,999',
-                            '$150,000 to $199,999',
-                            '$200,000 or more')
-  colnames(hh.by.incgroups)[1] <- "incgroup"
-  colnames(hh.by.incgroups)[2] <- file.name
-  ifelse (is.null(income.groups), income.groups <- hh.by.incgroups, income.groups <- cbind(income.groups, hh.by.incgroups[,2]))
+  if (export.income.summary == 1){
+    # compile quartile summary
+    inc.summary <- summary(hh.file$HINCP)
+    inc.summary <- data.frame(unclass(summary(hh.file$HINCP)))
+    colnames(inc.summary) <- file.name
+    ifelse (is.null(income.summary), income.summary <- inc.summary, income.summary <- cbind(income.summary, inc.summary))
+  }
   
-  # # compile quartile summary
-  # inc.summary <- summary(hh.file$HINCP)
-  # inc.summary <- data.frame(unclass(summary(hh.file$HINCP)))
-  # colnames(inc.summary) <- file.name
-  # ifelse (is.null(income.summary), income.summary <- inc.summary, income.summary <- cbind(income.summary, inc.summary))
-  # 
-  # # build income table
-  # year <- str_match(files[f], ".(\\d+).")[,2]
-  # hh.file$year <- year
-  # ifelse (is.null(income.table), income.table <- hh.file, income.table <- rbind(income.table, hh.file))
-  
+  if (plot == 1){
+    # build income table for box plot
+    year <- str_match(files[f], ".(\\d+).")[,2]
+    hh.file$year <- year
+    ifelse (is.null(income.table), income.table <- hh.file, income.table <- rbind(income.table, hh.file))
+  }
+} # end files loop
+
+if (export.income.summary == 1){
+  # export quartile summary to csv
+  write.table(income.summary, file.path(f.dir, "income_summary.csv"), col.names = NA, row.names = TRUE, sep = ",")
 }
 
-# # export quartile summary to csv
-# write.table(income.summary, file.path(f.dir, "income_summary.csv"), col.names = NA, row.names = TRUE, sep = ",")
-
-# export income group summary
-write.table(hh.by.incgroups, file.path(f.dir, "income_groups_summary.csv"), col.names = NA, row.names = TRUE, sep = ",")
+if (export.income.groups.table == 1){
+  # export income group summary
+  write.table(income.groups, file.path(f.dir, "income_groups_summary.csv"), col.names = NA, row.names = TRUE, sep = ",")
+}
 
 
 # box plot
