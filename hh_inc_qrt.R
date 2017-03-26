@@ -1,5 +1,5 @@
 # This script reports household income statistics and income quartiles
-# requires 'HINCP' column
+# required: 'HINCP' column, filename ends with data year, the only .csv files in f.dir are raw datafiles
 # user must set f.dir (where data resides) and option of creating plot
 
 library(stringr)
@@ -75,7 +75,6 @@ if (export.income.groups.table == 1){
   # export income group summary
   write.table(income.groups, file.path(f.dir, "income_groups_summary.csv"), col.names = NA, row.names = TRUE, sep = ",")
 }
-
 
 # box plot
 if (plot == 1){
